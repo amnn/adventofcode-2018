@@ -3,4 +3,8 @@ name = "adventofcode"
 version = "0.1.0"
 authors = ["Ashok Menon <ashokmenon@fb.com>"]
 
+[[bin]]
+name = "day01"
+path = "src/day01/main.rs"
+
 [dependencies]
