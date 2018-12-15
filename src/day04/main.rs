@@ -1,6 +1,6 @@
 #[macro_use] extern crate lib;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -15,24 +15,6 @@ input! {
 
         #["[{d}-{d}-{d} {d}:{d}]"; "falls asleep"]
         Sleep { y: usize, m: usize, d: usize, hr: usize, min: usize }
-    }
-}
-
-enum Transition {
-    Wake, Sleep
-}
-
-struct SleepRecord {
-    total_mins: usize,
-    transitions: BTreeMap<usize, Transition>,
-}
-
-impl SleepRecord {
-    fn new() -> Self {
-        SleepRecord {
-            total_mins: 0,
-            transitions: BTreeMap::new(),
-        }
     }
 }
 
@@ -57,80 +39,99 @@ fn parse_input() -> io::Result<Input> {
     Ok(logs)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Desc { Sleep, Wake }
+use self::Desc::*;
+
+#[derive(Clone, Debug)]
+struct Event {
+    desc: Desc,
+    min: usize,
+    guard: usize,
+}
+
+struct SleepRange {
+    start: usize,
+    end: usize,
+    guard: usize,
+}
+
 fn main() -> io::Result<()> {
     let inputs = parse_input()?;
 
-    let mut mins_asleep: HashMap<usize, SleepRecord> = HashMap::new();
-    let mut on_duty = 0;
-    let mut ts = 0;
-    let mut asleep = false;
-    for log in inputs {
-        match log {
-            Log::ShiftStart { id, min, .. } => {
-                asleep = false;
-                on_duty = id;
-                ts = min;
-            },
+    let sleep_events: Vec<Event> = inputs
+        .into_iter()
+        .scan(0, |on_duty, log| {
+            if let Log::ShiftStart { id, .. } = &log {
+                *on_duty = *id;
+            }
 
-            Log::Wake { min,.. } => {
-                assert!(on_duty != 0, "No guard on duty");
-                assert!(asleep);
+            Some((*on_duty, log))
+        }).filter_map(|(guard, log)| {
+            match log {
+                Log::ShiftStart { .. } => return None,
+                Log::Sleep { min, .. } => return Some(Event { desc: Sleep, min, guard }),
+                Log::Wake  { min, .. } => return Some(Event { desc: Wake,  min, guard }),
+            }
+        }).collect();
 
-                let mut record = mins_asleep.get_mut(&on_duty).unwrap();
-                record.total_mins += min - ts;
-                record.transitions.insert(min, Transition::Wake);
+    let sleep_durations = sleep_events
+        .iter()
+        .scan(0, |asleep_from, Event { desc, min, guard }| {
+            match desc {
+                Sleep => {
+                    *asleep_from = *min;
+                    return Some(None)
+                },
 
-                asleep = false;
-                ts = min;
-            },
+                Wake => {
+                    return Some(Some(
+                            SleepRange {
+                                start: *asleep_from,
+                                end: *min,
+                                guard: *guard
+                            }))
+                }
+            }
+        }).filter_map(|v| v);
 
-            Log::Sleep { min, .. } => {
-                assert!(on_duty != 0, "No guard on duty");
-
-                let mut record = mins_asleep
-                    .entry(on_duty)
-                    .or_insert_with(SleepRecord::new);
-
-                record.transitions.insert(min, Transition::Sleep);
-
-                asleep = true;
-                ts = min;
-            },
-        }
+    let mut sleep_totals = HashMap::new();
+    for SleepRange { start, end, guard } in sleep_durations {
+        let mut counter = sleep_totals.entry(guard).or_insert(0);
+        *counter += end - start;
     }
 
-    let (sleepiest, record) = mins_asleep
+    let (sleepiest, _) = sleep_totals
         .iter()
-        .max_by_key(|(_, rec)| rec.total_mins)
+        .max_by_key(|(_, total)| *total)
         .unwrap();
 
     println!("Sleepiest Guard: {}", sleepiest);
 
-    let mut days = 0;
-    let mut max_days = 0;
-    let mut start = 0;
-    let mut end = 0;
-    for (min, transition) in &record.transitions {
-        match transition {
-            Transition::Sleep => {
-                days += 1;
+    let mut sleepiest_events: Vec<Event> = sleep_events
+        .iter()
+        .filter(|event| event.guard == *sleepiest)
+        .cloned()
+        .collect();
 
-                if days >= max_days {
-                    max_days = days;
-                    start = *min;
-                }
-            },
-            Transition::Wake => {
-                if days == max_days {
-                    end = *min;
-                }
+    sleepiest_events.sort_unstable_by_key(|event| event.min);
+    let (_, event) = sleepiest_events
+        .iter()
+        .scan(0, |days, event| {
+            let Event { desc, .. } = event;
+            match desc {
+                Sleep => *days += 1,
+                Wake  => *days -= 1,
+            }
 
-                days -= 1;
-            },
-        }
-    }
+            Some((*days, event))
+        })
+        .filter(|(_, event)| event.desc == Wake)
+        .max_by_key(|(days, _)| *days)
+        .unwrap();
 
-    println!("Sleepiest Range: {} -- {}", start, end);
+    println!("Sleepiest minute: {}", event.min);
+    println!("Part 1: {}", sleepiest * (event.min - 1));
 
     Ok(())
 }
