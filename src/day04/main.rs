@@ -1,6 +1,7 @@
 #[macro_use] extern crate lib;
 
-use std::collections::HashMap;
+use lib::chunkable::Chunkable;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -56,6 +57,44 @@ struct SleepRange {
     guard: usize,
 }
 
+/// Returns the minute that `guard` is most often spent asleep at, and
+/// the number of days `guard` was asleep at that minute in.
+///
+/// Pre-condition: Assumes there is a "sleepiest" minute.
+fn sleepiest_minute(guard: usize, events: &Vec<Event>) -> (usize, usize) {
+    let mut guard_events: Vec<Event> = events
+        .iter()
+        .filter(|event| event.guard == guard)
+        .cloned()
+        .collect();
+
+    guard_events.sort_unstable_by_key(|event| event.min);
+    let mut days_by_min = guard_events
+        .iter()
+        .scan(0, |days, event| {
+            let Event { desc, .. } = event;
+            match desc {
+                Sleep => *days += 1,
+                Wake  => *days -= 1,
+            }
+
+            Some((*days, event.min))
+        })
+        .chunk_by(|(_, min)| *min)
+        .peekable();
+
+    let mut max_min = 0;
+    let mut max_days = 0;
+    while let Some((days, min)) = (&mut days_by_min).last() {
+        if days > max_days {
+            max_min = min;
+            max_days = days;
+        }
+    }
+
+    (max_min, max_days)
+}
+
 fn main() -> io::Result<()> {
     let inputs = parse_input()?;
 
@@ -101,37 +140,19 @@ fn main() -> io::Result<()> {
         *counter += end - start;
     }
 
-    let (sleepiest, _) = sleep_totals
-        .iter()
-        .max_by_key(|(_, total)| *total)
-        .unwrap();
+    {
+        let (&sleepiest, _) = sleep_totals
+            .iter()
+            .max_by_key(|(_, total)| *total)
+            .unwrap();
 
-    println!("Sleepiest Guard: {}", sleepiest);
+        let (min, count) = sleepiest_minute(sleepiest, &sleep_events);
 
-    let mut sleepiest_events: Vec<Event> = sleep_events
-        .iter()
-        .filter(|event| event.guard == *sleepiest)
-        .cloned()
-        .collect();
+        println!("Sleepiest Guard: {} @ {} x{}", sleepiest, min, count);
+        println!("Part 1: {}", sleepiest * min);
+    }
 
-    sleepiest_events.sort_unstable_by_key(|event| event.min);
-    let (_, event) = sleepiest_events
-        .iter()
-        .scan(0, |days, event| {
-            let Event { desc, .. } = event;
-            match desc {
-                Sleep => *days += 1,
-                Wake  => *days -= 1,
-            }
 
-            Some((*days, event))
-        })
-        .filter(|(_, event)| event.desc == Wake)
-        .max_by_key(|(days, _)| *days)
-        .unwrap();
-
-    println!("Sleepiest minute: {}", event.min);
-    println!("Part 1: {}", sleepiest * (event.min - 1));
 
     Ok(())
 }
