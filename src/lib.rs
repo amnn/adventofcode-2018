@@ -1,3 +1,5 @@
+pub mod chunkable;
+
 #[macro_export] macro_rules! _parser_from_patt {
     ($fun: ident, $cls:ident, $ctr:ident, $patt:expr, $suff:expr, $($field:ident: $ty:ty),*) => {
         fn $fun(s: &str) -> std::io::Result<$cls> {
