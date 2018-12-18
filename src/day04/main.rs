@@ -152,7 +152,24 @@ fn main() -> io::Result<()> {
         println!("Part 1: {}", sleepiest * min);
     }
 
+    let guards: HashSet<usize> = sleep_events
+        .iter()
+        .map(|event| event.guard)
+        .collect();
 
+    {
+        let (sleepiest, min, count) = guards
+            .iter()
+            .map(|g| {
+                let (min, count) = sleepiest_minute(*g, &sleep_events);
+                (*g, min, count)
+            })
+            .max_by_key(|(_, _, count)| *count)
+            .unwrap();
+
+        println!("Sleepiest Guard: {} @ {} x{}", sleepiest, min, count);
+        println!("Part 2: {}", sleepiest * min);
+    }
 
     Ok(())
 }
