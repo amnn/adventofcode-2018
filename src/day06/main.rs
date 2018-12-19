@@ -24,6 +24,10 @@ impl Coord {
             Coord { x, y: y + 1 },
         ]
     }
+
+    fn dist(&self, other: &Coord) -> usize {
+        ((self.x - other.x).abs() + (self.y - other.y).abs()) as usize
+    }
 }
 
 struct Boundary {
@@ -127,23 +131,15 @@ impl IndexMut<&Coord> for Grid {
     }
 }
 
-fn main() -> io::Result<()> {
-    let fname = env::args().nth(1).unwrap();
-    let file = File::open(fname)?;
-    let reader = BufReader::new(file);
-
-    let coords = reader.lines()
-        .map(|l| Coord::new(&l?))
-        .collect::<io::Result<Vec<_>>>()?;
-
-    let mut grid = Grid::new(Boundary::around(&coords));
+fn finite_areas_surrounding(coords: &Vec<Coord>) -> HashMap<usize, usize> {
+    let mut grid = Grid::new(Boundary::around(coords));
     let mut frontier = VecDeque::new();
 
     // Seed the grid with the initial frontier
     for (owner, coord) in coords.into_iter().enumerate() {
         assert!(grid[&coord] == Cell::Unexplored);
         grid[&coord] = Cell::Owned { owner, dist: 0 };
-        frontier.push_back(coord);
+        frontier.push_back(coord.clone());
     }
 
     let mut area = HashMap::new();
@@ -182,17 +178,73 @@ fn main() -> io::Result<()> {
         }
     }
 
-    let largest_area = area
-        .iter()
-        .filter_map(|(k, &v)| {
-            if infinite.contains(k) {
-                None
-            } else {
-                Some(v)
-            }
-        }).max().unwrap();
+    area.retain(|k, _| !infinite.contains(k));
+    area
+}
 
-    println!("Part 1: {}", largest_area);
+fn median(coords: &Vec<Coord>) -> Coord {
+    let mut x_coords: Vec<isize> = coords.iter().map(|c| c.x).collect();
+    let mut y_coords: Vec<isize> = coords.iter().map(|c| c.y).collect();
+
+    x_coords.sort_unstable();
+    y_coords.sort_unstable();
+
+    let midpoint = coords.len() / 2;
+
+    Coord { x: x_coords[midpoint], y: y_coords[midpoint] }
+}
+
+fn area_within_bounded_distance(bound: usize, coords: &Vec<Coord>) -> usize {
+    let mut visited = HashSet::new();
+    let mut frontier = VecDeque::new();
+    frontier.push_back(median(coords));
+
+    let mut area = 0;
+    'outer: while !frontier.is_empty() {
+        let p = frontier.pop_front().unwrap();
+        if visited.contains(&p) {
+            continue
+        } else {
+            visited.insert(p.clone());
+        }
+
+        let mut abs_dev = 0;
+        for c in coords.iter() {
+            abs_dev += p.dist(c);
+            if abs_dev >= bound {
+                continue 'outer
+            }
+        }
+
+        area += 1;
+        for nbr in p.neighbours().iter().cloned() {
+            frontier.push_back(nbr);
+        }
+    };
+
+    area
+}
+
+fn main() -> io::Result<()> {
+    let fname = env::args().nth(1).unwrap();
+    let file = File::open(fname)?;
+    let reader = BufReader::new(file);
+
+    let coords = reader.lines()
+        .map(|l| Coord::new(&l?))
+        .collect::<io::Result<Vec<_>>>()?;
+
+    let areas = finite_areas_surrounding(&coords);
+
+    {
+        let largest_area = areas.values().max().unwrap();
+        println!("Part 1: {}", largest_area);
+    }
+
+    {
+        let part2 = area_within_bounded_distance(10000, &coords);
+        println!("Part 2: {}", part2);
+    }
 
     Ok(())
 }
