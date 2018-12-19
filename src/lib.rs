@@ -44,7 +44,7 @@ pub mod chunkable;
     ) => {
         #[macro_use] extern crate scan_fmt;
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         struct $name {
             $($field: $ty),*
         }
@@ -66,7 +66,7 @@ pub mod chunkable;
     ) => {
         #[macro_use] extern crate scan_fmt;
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         enum $name {
             $($label { $($field: $ty),* }),*
         }
