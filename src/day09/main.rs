@@ -1,4 +1,5 @@
 #[macro_use] extern crate lib;
+#[macro_use] extern crate scan_fmt;
 
 use std::env;
 use std::fmt;
