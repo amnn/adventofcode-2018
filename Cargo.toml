@@ -55,5 +55,12 @@ path = "src/day11/main.rs"
 name = "day12"
 path = "src/day12/main.rs"
 
+[[bin]]
+name = "day13"
+path = "src/day13/main.rs"
+
+
 [dependencies]
+num-derive = "0.2"
+num-traits = "0.2"
 scan_fmt = "~0.1.3"
