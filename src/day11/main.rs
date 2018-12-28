@@ -1,52 +1,7 @@
-use std::ops::{Index, IndexMut};
+extern crate lib;
+use lib::grid::Grid;
 
-struct Grid {
-    width: usize,
-    height: usize,
-    storage: Box<[isize]>,
-}
-
-impl Grid {
-    fn new(width: usize, height: usize) -> Grid {
-        let storage = vec![0; width * height].into_boxed_slice();
-        Grid { width, height, storage }
-    }
-
-    fn new_with_mapping<F>(width: usize, height: usize, mut f: F) -> Grid
-        where F: FnMut(usize, usize) -> isize {
-        let storage = (0 .. width * height).map(|i| {
-            let x = i % width;
-            let y = i / width;
-            f(x, y)
-        }).collect::<Vec<_>>().into_boxed_slice();
-
-        Grid { width, height, storage }
-    }
-
-    fn coord(&self, i: usize) -> (usize, usize) {
-        let x = i % self.width;
-        let y = i / self.width;
-        (x, y)
-    }
-}
-
-impl Index<(usize, usize)> for Grid {
-    type Output = isize;
-
-    fn index<'a>(&'a self, index: (usize, usize)) -> &'a isize {
-        let (x, y) = index;
-        let i = y * self.width + x;
-        &self.storage[i]
-    }
-}
-
-impl IndexMut<(usize, usize)> for Grid {
-    fn index_mut<'a>(&'a mut self, index: (usize, usize)) -> &'a mut isize {
-        let (x, y) = index;
-        let i = y * self.width + x;
-        &mut self.storage[i]
-    }
-}
+type PwrGrid = Grid<isize>;
 
 fn power(serial: usize, x: usize, y: usize) -> isize {
     let rack_id = x + 10;
@@ -58,8 +13,8 @@ fn power(serial: usize, x: usize, y: usize) -> isize {
     level
 }
 
-fn max_in_grid_nbyn(dim: usize, grid: &Grid) -> (usize, usize, isize) {
-    let wndw = grid.width - dim + 1;
+fn max_in_grid_nbyn(dim: usize, grid: &PwrGrid) -> (usize, usize, isize) {
+    let wndw = grid.width() - dim + 1;
     let sum_grid = Grid::new_with_mapping(
         wndw, wndw, |i, j| {
             (0 .. dim).map(|k| {
@@ -69,7 +24,7 @@ fn max_in_grid_nbyn(dim: usize, grid: &Grid) -> (usize, usize, isize) {
             }).sum::<isize>()
         });
 
-    let (i, &p) = sum_grid.storage.iter()
+    let (i, &p) = sum_grid.elems()
         .enumerate()
         .max_by_key(|&(_, p)| p)
         .unwrap();
@@ -91,7 +46,7 @@ fn main() {
     }
 
     let row_cum = {
-        let mut cum = Grid::new(SIDE + 1, SIDE);
+        let mut cum = Grid::new(SIDE + 1, SIDE, 0);
 
         for j in 0 .. SIDE {
             for i in 1 ..= SIDE {
@@ -103,7 +58,7 @@ fn main() {
     };
 
     let col_cum = {
-        let mut cum = Grid::new(SIDE, SIDE + 1);
+        let mut cum = Grid::new(SIDE, SIDE + 1, 0);
 
         for j in 1 ..= SIDE {
             for i in 0 .. SIDE {
@@ -118,7 +73,7 @@ fn main() {
         let mut max_power = isize::min_value();
         let mut max_coord = (0, 0, 0);
 
-        let mut window_sums = Grid::new(SIDE, SIDE);
+        let mut window_sums = Grid::new(SIDE, SIDE, 0);
         for d in 0 .. SIDE {
             let end = SIDE - d;
             for j in 0 .. end {

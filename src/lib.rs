@@ -1,4 +1,5 @@
 pub mod chunkable;
+pub mod grid;
 
 #[macro_export] macro_rules! _parser_from_patt {
     ($fun: ident, $cls:ident, $ctr:ident, $patt:expr, $suff:expr, $($field:ident: $ty:ty),*) => {
