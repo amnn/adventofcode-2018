@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::{Index, IndexMut};
 
 pub struct Grid<T> {
@@ -59,5 +60,21 @@ impl <T> IndexMut<(usize, usize)> for Grid<T> {
         let (x, y) = index;
         let i = y * self.width + x;
         &mut self.storage[i]
+    }
+}
+
+impl <T> fmt::Debug for Grid<T>
+    where T: fmt::Debug
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for j in 0 .. self.height {
+            for i in 0 .. self.width {
+                f.pad(&format!("{:?}", self[(i, j)]))?;
+            }
+            writeln!(f, "")?;
+        }
+
+
+        Ok(())
     }
 }
